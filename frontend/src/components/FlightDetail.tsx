@@ -355,7 +355,7 @@ const FlightDetail: React.FC = () => {
   }
 
   const completedCount = tasks.filter(t => t.completed).length;
-  const templatesByCategory = getTemplatesByCategory();
+  // const templatesByCategory = getTemplatesByCategory();
   const isCompleted = flight.status === 'completed';
 
   return (

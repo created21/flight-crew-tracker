@@ -1,6 +1,8 @@
 // frontend/src/components/TemplateLibrary.tsx
 import React, { useState } from 'react';
-import { taskTemplates, TaskTemplate, categoryNames, getTemplatesByCategory } from '../data/taskTemplates';
+// import { taskTemplates, TaskTemplate, categoryNames, getTemplatesByCategory } from '../data/taskTemplates';
+import { taskTemplates, TaskTemplate, categoryNames } from '../data/taskTemplates';
+
 
 interface TemplateLibraryProps {
   isOpen: boolean;
@@ -13,8 +15,16 @@ const TemplateLibrary: React.FC<TemplateLibraryProps> = ({ isOpen, onClose }) =>
   const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
-  const categories = ['all', ...Object.keys(categoryNames)];
-
+  // const categories = ['all', ...Object.keys(categoryNames)];
+  <select
+    value={selectedCategory}
+    onChange={(e) => setSelectedCategory(e.target.value)}
+  >
+    <option value="all">Все категории</option>
+    {Object.entries(categoryNames).map(([key, name]) => (
+      <option key={key} value={key}>{name}</option>
+    ))}
+  </select>
   const filteredTemplates = taskTemplates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchTerm.toLowerCase());

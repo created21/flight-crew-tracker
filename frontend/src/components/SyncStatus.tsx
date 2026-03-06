@@ -1,6 +1,8 @@
 // frontend/src/components/SyncStatus.tsx
 import React, { useState, useEffect } from 'react';
-import { db, getPendingSyncCount, getSyncInfo, clearSyncQueue } from '../db/database';
+// import { db, getPendingSyncCount, getSyncInfo, clearSyncQueue } from '../db/database';
+import { getPendingSyncCount, getSyncInfo, clearSyncQueue } from '../db/database';
+
 
 interface Props {
   isOnline: boolean;

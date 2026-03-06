@@ -10,8 +10,11 @@ import { API_URL } from './config';
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+useEffect(() => {
+  const handleOnline = () => setIsOnline(true);
+  const handleOffline = () => setIsOnline(false);
 
-  useEffect(() => {
+  
   // Получаем токен из URL при заходе через бота
   const urlParams = new URLSearchParams(window.location.search);
   const token = urlParams.get('token');
