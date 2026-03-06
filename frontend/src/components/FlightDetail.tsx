@@ -16,7 +16,8 @@ import TaskEditModal from './TaskEditModal';
 import TemplateManager from './TemplateManager';
 
 // Импорт данных
-import { getTemplatesByCategory } from '../data/taskTemplates';
+// import { getTemplatesByCategory } from '../data/taskTemplates';
+import { TaskTemplate } from '../data/taskTemplates';
 
 const FlightDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();

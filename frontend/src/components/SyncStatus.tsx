@@ -1,5 +1,5 @@
 // frontend/src/components/SyncStatus.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; 
 // import { db, getPendingSyncCount, getSyncInfo, clearSyncQueue } from '../db/database';
 import { getPendingSyncCount, getSyncInfo, clearSyncQueue } from '../db/database';
 
@@ -15,24 +15,24 @@ const SyncStatus: React.FC<Props> = ({ isOnline, onSync }) => {
   const [syncing, setSyncing] = useState(false);
   const [syncInfo, setSyncInfo] = useState<any>(null);
 
+
+
+const loadPendingCount = useCallback(async () => {
+  const count = await getPendingSyncCount();
+  setPendingCount(count);
+  
+  if (showDetails) {
+    const info = await getSyncInfo();
+    setSyncInfo(info);
+  }
+}, [showDetails]);
+
   useEffect(() => {
     loadPendingCount();
     
-    // Подписываемся на изменения в базе данных
     const interval = setInterval(loadPendingCount, 5000);
-    
     return () => clearInterval(interval);
-  }, []);
-
-  const loadPendingCount = async () => {
-    const count = await getPendingSyncCount();
-    setPendingCount(count);
-    
-    if (showDetails) {
-      const info = await getSyncInfo();
-      setSyncInfo(info);
-    }
-  };
+  }, [loadPendingCount]); 
 
   const handleSync = async () => {
     if (!isOnline || syncing) return;
