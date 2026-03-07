@@ -9,11 +9,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Токен от @BotFather (используем тот же, что в тестовом боте)
+// Токен от @BotFather
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8743924213:AAEE4bpiE44js43cY2s53o_uEipKXLg3Y-o';
 const bot = new Telegraf(BOT_TOKEN);
 
-// Хранилище сессий
+// Хранилище сессий (в памяти, для Vercel лучше использовать Redis)
 const sessions = new Map();
 
 // Генерация простого токена
@@ -36,9 +36,9 @@ function getTaskName(taskId) {
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const username = ctx.from.first_name || 'пользователь';
-  const APP_URL = process.env.NODE_ENV === 'production' 
-  ? process.env.FRONTEND_URL 
-  : 'http://localhost:3000';
+  
+  // URL фронтенда из переменных окружения
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://flight-crew-tracker.vercel.app';
 
   try {
     // Создаем или получаем пользователя
@@ -56,37 +56,22 @@ bot.start(async (ctx) => {
     }
     
     // URL для открытия приложения с токеном
-    const pwaUrl = `${APP_URL}?token=${user.token}`;
-
+    const pwaUrl = `${FRONTEND_URL}?token=${user.token}`;
     
     await ctx.reply(
       `✈️ Привет, ${username}!\n\n` +
       `Я бот для отслеживания задач бортпроводников.\n\n` +
       `📱 Нажми кнопку ниже, чтобы открыть приложение:`,
       Markup.inlineKeyboard([
-        [Markup.button.url('🚀 Открыть PWA', pwaUrl)],
-        // [Markup.button.callback('📋 Тестовый режим (без PWA)', 'test_mode')]
+        [Markup.button.url('🚀 Открыть PWA', pwaUrl)]
       ])
     );
     
-    sessions.set(userId, { userId: user.id, token: user.token });
+    sessions.set(userId, { userId: user.id, token: user.token, username });
   } catch (error) {
     console.error('Error in /start:', error);
     ctx.reply('Произошла ошибка. Пожалуйста, попробуйте позже.');
   }
-});
-
-// Тестовый режим без PWA
-bot.action('test_mode', async (ctx) => {
-  await ctx.reply(
-    '🔄 Тестовый режим\n\n' +
-    'Доступные команды:\n' +
-    '/flight - информация о рейсе\n' +
-    '/tasks - список задач\n' +
-    '/start_task - начать задачу\n' +
-    '/stop_task - завершить задачу\n' +
-    '/stats - статистика'
-  );
 });
 
 // Информация о рейсе
@@ -239,25 +224,6 @@ app.post('/api/verify-token', async (req, res) => {
   }
 });
 
-// API для сохранения токена после авторизации
-app.post('/api/save-token', async (req, res) => {
-  const { token, userId } = req.body;
-  
-  try {
-    const user = await db.getUserByTelegramId(userId);
-    if (user) {
-      await db.updateUserToken(user.id, token);
-      sessions.set(userId, { userId: user.id, token, username: user.username });
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ error: 'User not found' });
-    }
-  } catch (error) {
-    console.error('Error saving token:', error);
-    res.status(500).json({ error: 'Ошибка сохранения токена' });
-  }
-});
-
 // API для отправки отчета
 app.post('/api/send-report', async (req, res) => {
   const { token, flightId, report } = req.body;
@@ -271,7 +237,6 @@ app.post('/api/send-report', async (req, res) => {
     
     // Сначала ищем в сессиях
     for (const [userId, session] of sessions.entries()) {
-      console.log('Сессия:', userId, session);
       if (session.token === token) {
         user = session;
         chatId = userId;
@@ -287,7 +252,6 @@ app.post('/api/send-report', async (req, res) => {
         user = dbUser;
         chatId = dbUser.telegramId;
         sessions.set(chatId, { userId: dbUser.id, token, username: dbUser.username });
-        console.log('Пользователь найден в БД:', dbUser);
       }
     }
     
@@ -331,47 +295,18 @@ app.get('/api/bot-status', (req, res) => {
   });
 });
 
-// API для получения списка активных сессий (только для админа)
-app.get('/api/sessions', (req, res) => {
-  const sessionsList = [];
-  for (const [userId, session] of sessions.entries()) {
-    sessionsList.push({
-      userId,
-      ...session
-    });
-  }
-  res.json(sessionsList);
-});
-
-// Запуск бота
+// Запускаем бота (важно для Vercel - запускаем без app.listen())
 bot.launch().then(() => {
   console.log('🤖 Telegram бот запущен');
-  console.log('📱 Используйте токен:', BOT_TOKEN);
-  console.log('👤 Бот: @' + bot.botInfo?.username);
+  console.log('👤 Бот: @' + (bot.botInfo?.username || 'unknown'));
+}).catch(err => {
+  console.error('❌ Ошибка запуска бота:', err);
 });
 
-// Запуск API
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log('🌐 API сервер запущен на порту', PORT);
-  console.log('🔗 API endpoints:');
-  console.log(`   POST http://localhost:${PORT}/api/verify-token`);
-  console.log(`   POST http://localhost:${PORT}/api/save-token`);
-  console.log(`   POST http://localhost:${PORT}/api/send-report`);
-  console.log(`   GET  http://localhost:${PORT}/api/bot-status`);
-});
+// ВАЖНО: Экспортируем app для Vercel
+module.exports = app;
 
-// Graceful stop
-process.once('SIGINT', () => {
-  console.log('🛑 Остановка бота...');
-  bot.stop('SIGINT');
-  process.exit(0);
-});
-
-process.once('SIGTERM', () => {
-  console.log('🛑 Остановка бота...');
-  bot.stop('SIGTERM');
-  process.exit(0);
-});
-
-module.exports = bot;
+// НЕ ИСПОЛЬЗУЕМ app.listen() - Vercel вызывает app сам!
+// Удаляем или комментируем:
+// const PORT = process.env.PORT || 3001;
+// app.listen(PORT, () => { ... });
