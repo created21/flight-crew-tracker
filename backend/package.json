@@ -1,19 +1,24 @@
 {
   "name": "flight-crew-tracker-backend",
   "version": "1.0.0",
-  "description": "Backend for Flight Crew Tracker",
-  "main": "telegram/bot.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "start": "node telegram/bot.js",
-    "vercel-build": "echo 'Build complete'"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "bot": "node telegram/bot.js",
+    "bot-dev": "nodemon telegram/bot.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "telegraf": "^4.12.2",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "telegraf": "^4.12.2"
   },
-  "engines": {
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+    "engines": {
     "node": "24.x"
   }
 }
