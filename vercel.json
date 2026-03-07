@@ -5,7 +5,7 @@
       "src": "backend/telegram/bot.js",
       "use": "@vercel/node",
       "config": {
-        "nodeVersion": "22.x"
+        "nodeVersion": "24.x"
       }
     }
   ],
