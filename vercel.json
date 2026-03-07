@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "backend/telegram/bot.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "22.x"
+      }
     }
   ],
   "routes": [
