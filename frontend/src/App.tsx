@@ -11,17 +11,27 @@ import { API_URL } from './config';
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 useEffect(() => {
-  const handleOnline = () => setIsOnline(true);
-  const handleOffline = () => setIsOnline(false);
-
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-
-  return () => {
-    window.removeEventListener('online', handleOnline);
-    window.removeEventListener('offline', handleOffline);
-  };
-}, [setIsOnline]);
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  
+  if (token) {
+    localStorage.setItem('telegram_token', token);
+    console.log('✅ Токен сохранен:', token);
+    
+    // Проверяем токен на бекенде
+    fetch(`${API_URL}/api/verify-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.valid) {
+        console.log('✅ Токен подтвержден');
+      }
+    });
+  }
+}, []);
   
 
   const handleSync = async () => {
