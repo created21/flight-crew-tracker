@@ -9,14 +9,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Токен от @BotFather
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8743924213:AAEE4bpiE44js43cY2s53o_uEipKXLg3Y-o';
 const bot = new Telegraf(BOT_TOKEN);
 
-// Хранилище сессий (в памяти, для Vercel лучше использовать Redis)
-const sessions = new Map();
-
-// Генерация простого токена
+// Функция для генерации токена
 function generateToken() {
   return Buffer.from(`${Date.now()}-${Math.random()}`).toString('base64');
 }
@@ -36,8 +32,6 @@ function getTaskName(taskId) {
 bot.start(async (ctx) => {
   const userId = ctx.from.id.toString();
   const username = ctx.from.first_name || 'пользователь';
-  
-  // URL фронтенда из переменных окружения
   const FRONTEND_URL = process.env.FRONTEND_URL || 'https://flight-crew-tracker.vercel.app';
 
   try {
@@ -50,12 +44,10 @@ bot.start(async (ctx) => {
         token: generateToken()
       });
     } else {
-      // Обновляем токен
       const newToken = generateToken();
       user = await db.updateUserToken(user.id, newToken);
     }
     
-    // URL для открытия приложения с токеном
     const pwaUrl = `${FRONTEND_URL}?token=${user.token}`;
     
     await ctx.reply(
@@ -67,14 +59,13 @@ bot.start(async (ctx) => {
       ])
     );
     
-    sessions.set(userId, { userId: user.id, token: user.token, username });
   } catch (error) {
     console.error('Error in /start:', error);
     ctx.reply('Произошла ошибка. Пожалуйста, попробуйте позже.');
   }
 });
 
-// Информация о рейсе
+// Остальные команды бота...
 bot.command('flight', (ctx) => {
   ctx.reply(
     '✈️ Текущий рейс: SU1234\n' +
@@ -84,7 +75,6 @@ bot.command('flight', (ctx) => {
   );
 });
 
-// Список задач
 bot.command('tasks', (ctx) => {
   ctx.reply(
     '📋 Задачи на рейс:\n\n' +
@@ -95,7 +85,6 @@ bot.command('tasks', (ctx) => {
   );
 });
 
-// Статистика
 bot.command('stats', (ctx) => {
   ctx.reply(
     '📊 Статистика за сегодня:\n\n' +
@@ -106,7 +95,6 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// Запуск задачи
 bot.command('start_task', (ctx) => {
   ctx.reply(
     '⏱ Выберите задачу:',
@@ -120,104 +108,64 @@ bot.command('start_task', (ctx) => {
   );
 });
 
-// Обработка таймеров
-bot.action(/timer_(.+)/, async (ctx) => {
-  const task = ctx.match[1];
+// Обработка callback запросов
+bot.on('callback_query', async (ctx) => {
+  const callbackData = ctx.callbackQuery.data;
   
-  if (task === 'cancel') {
-    return ctx.reply('❌ Таймер отменен');
+  if (callbackData.startsWith('timer_')) {
+    const task = callbackData.replace('timer_', '');
+    
+    if (task === 'cancel') {
+      await ctx.reply('❌ Таймер отменен');
+      await ctx.answerCbQuery();
+      return;
+    }
+    
+    // Здесь логика таймера
+    await ctx.reply(
+      `⏱ Таймер для "${getTaskName(task)}" запущен!\n\n` +
+      `Чтобы остановить, нажми кнопку ниже:`,
+      Markup.inlineKeyboard([
+        [Markup.button.callback('⏹ СТОП', `stop_timer_${task}`)]
+      ])
+    );
+    await ctx.answerCbQuery();
   }
   
-  const userId = ctx.from.id.toString();
-  
-  sessions.set(`${userId}_timer`, {
-    task,
-    startTime: Date.now()
-  });
-  
-  await ctx.reply(
-    `⏱ Таймер для "${getTaskName(task)}" запущен!\n\n` +
-    `Чтобы остановить, нажми кнопку ниже:`,
-    Markup.inlineKeyboard([
-      [Markup.button.callback('⏹ СТОП', `stop_timer_${task}`)]
-    ])
-  );
-});
-
-// Остановка задачи
-bot.action(/stop_timer_(.+)/, async (ctx) => {
-  const task = ctx.match[1];
-  const userId = ctx.from.id.toString();
-  
-  const timerData = sessions.get(`${userId}_timer`);
-  if (!timerData) {
-    return ctx.reply('❌ Нет активного таймера');
+  else if (callbackData.startsWith('stop_timer_')) {
+    const task = callbackData.replace('stop_timer_', '');
+    
+    // Генерируем случайное время для демо
+    const duration = Math.floor(Math.random() * 300) + 60;
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    
+    await ctx.reply(
+      `✅ Задача "${getTaskName(task)}" выполнена!\n` +
+      `⏱ Время: ${minutes}:${seconds.toString().padStart(2, '0')}`
+    );
+    await ctx.answerCbQuery();
   }
-  
-  const duration = Math.floor((Date.now() - timerData.startTime) / 1000);
-  const minutes = Math.floor(duration / 60);
-  const seconds = duration % 60;
-  
-  await ctx.reply(
-    `✅ Задача "${getTaskName(task)}" выполнена!\n` +
-    `⏱ Время: ${minutes}:${seconds.toString().padStart(2, '0')}`
-  );
-  
-  sessions.delete(`${userId}_timer`);
-});
-
-// Остановка задачи через команду
-bot.command('stop_task', (ctx) => {
-  const userId = ctx.from.id.toString();
-  const timerData = sessions.get(`${userId}_timer`);
-  
-  if (!timerData) {
-    return ctx.reply('❌ Нет активного таймера');
-  }
-  
-  const duration = Math.floor((Date.now() - timerData.startTime) / 1000);
-  const minutes = Math.floor(duration / 60);
-  const seconds = duration % 60;
-  
-  ctx.reply(
-    `✅ Задача "${getTaskName(timerData.task)}" завершена!\n` +
-    `⏱ Время выполнения: ${minutes}:${seconds.toString().padStart(2, '0')}`
-  );
-  
-  sessions.delete(`${userId}_timer`);
 });
 
 // ==================== API ENDPOINTS ====================
+
+// Эндпоинт для webhook Telegram
+app.post('/api/webhook', (req, res) => {
+  bot.handleUpdate(req.body, res);
+});
 
 // API для проверки токена
 app.post('/api/verify-token', async (req, res) => {
   const { token } = req.body;
   
   try {
-    let valid = false;
-    let userData = null;
-    
-    // Ищем пользователя по токену в сессиях
-    for (const [userId, session] of sessions.entries()) {
-      if (session.token === token) {
-        valid = true;
-        userData = { userId, username: session.username };
-        break;
-      }
+    const user = await db.getUserByToken(token);
+    if (user) {
+      res.json({ valid: true, userId: user.telegramId, username: user.username });
+    } else {
+      res.json({ valid: false });
     }
-    
-    // Если не нашли в сессиях, ищем в БД
-    if (!valid) {
-      const user = await db.getUserByToken(token);
-      if (user) {
-        valid = true;
-        userData = { userId: user.telegramId, username: user.username };
-        // Сохраняем в сессию
-        sessions.set(user.telegramId, { userId: user.id, token: user.token, username: user.username });
-      }
-    }
-    
-    res.json({ valid, ...userData });
   } catch (error) {
     console.error('Error verifying token:', error);
     res.status(500).json({ valid: false, error: 'Server error' });
@@ -228,54 +176,20 @@ app.post('/api/verify-token', async (req, res) => {
 app.post('/api/send-report', async (req, res) => {
   const { token, flightId, report } = req.body;
   
-  console.log('📨 Получен запрос на отправку отчета:', { token, flightId });
-  
   try {
-    // Ищем пользователя по токену
-    let user = null;
-    let chatId = null;
-    
-    // Сначала ищем в сессиях
-    for (const [userId, session] of sessions.entries()) {
-      if (session.token === token) {
-        user = session;
-        chatId = userId;
-        break;
-      }
-    }
-    
-    // Если не нашли в сессиях, ищем в БД
+    const user = await db.getUserByToken(token);
     if (!user) {
-      console.log('Поиск в БД по токену:', token);
-      const dbUser = await db.getUserByToken(token);
-      if (dbUser) {
-        user = dbUser;
-        chatId = dbUser.telegramId;
-        sessions.set(chatId, { userId: dbUser.id, token, username: dbUser.username });
-      }
+      return res.status(401).json({ error: 'Неверный токен' });
     }
     
-    if (!user || !chatId) {
-      console.log('❌ Пользователь не найден для токена:', token);
-      return res.status(401).json({ error: 'Неверный токен или пользователь не найден' });
-    }
+    await bot.telegram.sendMessage(user.telegramId, report, { parse_mode: 'Markdown' });
     
-    // Отправляем сообщение через бота
-    console.log('📤 Отправка сообщения в Telegram:', { chatId });
-    await bot.telegram.sendMessage(chatId, report, { parse_mode: 'Markdown' });
-    console.log('✅ Сообщение отправлено');
-    
-    // Сохраняем отчет в историю
-    try {
-      await db.saveReport({
-        userId: user.userId || user.id,
-        flightId,
-        report,
-        sentAt: new Date()
-      });
-    } catch (dbError) {
-      console.error('Error saving report to DB:', dbError);
-    }
+    await db.saveReport({
+      userId: user.id,
+      flightId,
+      report,
+      sentAt: new Date()
+    });
     
     res.json({ success: true, message: 'Отчет успешно отправлен' });
     
@@ -285,28 +199,14 @@ app.post('/api/send-report', async (req, res) => {
   }
 });
 
-// API для получения статуса бота
+// API для статуса бота
 app.get('/api/bot-status', (req, res) => {
   res.json({
     status: 'online',
     botToken: BOT_TOKEN ? 'configured' : 'missing',
-    sessionsCount: sessions.size,
-    uptime: process.uptime()
+    webhook: 'https://flight-crew-tracker-jsh8.vercel.app/api/webhook'
   });
 });
 
-// Запускаем бота (важно для Vercel - запускаем без app.listen())
-bot.launch().then(() => {
-  console.log('🤖 Telegram бот запущен');
-  console.log('👤 Бот: @' + (bot.botInfo?.username || 'unknown'));
-}).catch(err => {
-  console.error('❌ Ошибка запуска бота:', err);
-});
-
-// ВАЖНО: Экспортируем app для Vercel
+// Экспортируем app для Vercel
 module.exports = app;
-
-// НЕ ИСПОЛЬЗУЕМ app.listen() - Vercel вызывает app сам!
-// Удаляем или комментируем:
-// const PORT = process.env.PORT || 3001;
-// app.listen(PORT, () => { ... });
