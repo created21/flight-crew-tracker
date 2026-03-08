@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import FlightList from './components/FlightList';
 import FlightNew from './components/FlightNew';
 import FlightEdit from './components/FlightEdit';
@@ -52,6 +53,7 @@ useEffect(() => {
       
       {/* Индикатор синхронизации */}
       <SyncStatus isOnline={isOnline} onSync={handleSync} />
+      <Analytics />
     </BrowserRouter>
   );
 }
