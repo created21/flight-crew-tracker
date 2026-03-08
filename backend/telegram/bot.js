@@ -4,6 +4,8 @@ const cors = require('cors');
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../database/db');
 require('dotenv').config();
+const db = require('../database/supabase');
+
 
 const app = express();
 app.use(cors());
@@ -271,6 +273,29 @@ app.get('/api/bot-status', (req, res) => {
     webhook: 'https://flight-crew-tracker-jsh8.vercel.app/api/webhook',
     uptime: process.uptime()
   });
+});
+
+// Тестовый endpoint для проверки Supabase
+app.get('/api/test-supabase', async (req, res) => {
+  try {
+    // Пробуем создать тестового пользователя
+    const testUser = await db.createUser({
+      telegramId: 'test123',
+      username: 'test',
+      token: 'test-token-' + Date.now()
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Supabase работает!',
+      testUser 
+    });
+  } catch (error) {
+    res.json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
 });
 
 module.exports = app;

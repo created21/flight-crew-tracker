@@ -10,6 +10,8 @@
     "bot-dev": "nodemon telegram/bot.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "@vercel/postgres": "^0.10.0",
     "axios": "^1.13.6",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
