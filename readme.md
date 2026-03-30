@@ -1,56 +1,78 @@
-# Flight Crew Tracker ✈️
+# ✈️ Flight Crew Tracker
 
-Приложение для отслеживания задач бортпроводников.
+**Приложение для отслеживания задач бортпроводников** — таймер, шаблоны задач и отчетностью.
 
-## 🚀 Демо
-- Frontend: https://your-frontend.vercel.app
-- Telegram Bot: https://t.me/your_bot
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![PWA](https://img.shields.io/badge/PWA-Enabled-green.svg)](https://web.dev/progressive-web-apps/)
 
-## 🛠 Технологии
-- React + TypeScript
-- Node.js + Express
-- MySQL
-- Telegram Bot API
+---
 
-## 📦 Локальный запуск
+## 📱 Демо
 
-1. Клонировать репозиторий
-2. `cd flight-crew-tracker`
-3. `docker-compose up -d`
-4. Открыть http://localhost:3000
+| Среда | Ссылка |
+|-------|--------|
+| **Production (стабильная)** | [https://flight-crew-tracker.vercel.app](https://flight-crew-tracker.vercel.app) |
+| **Preview (новая версия)** | [https://flight-crew-tracker-git-feature-v2.vercel.app](https://flight-crew-tracker-git-feature-v2.vercel.app) |
 
-## 🌍 Деплой
-- Frontend: Vercel
-- Backend: Render
-- Database: PlanetScale
+> ⚠️ **Важно**: Данные сохраняются локально на устройстве. 
 
-## 📱 Telegram бот
-@your_bot - для получения отчетов
+---
 
+## 🎯 Возможности
 
+### 📋 Управление рейсами
+- Создание, редактирование, удаление рейсов
+- Статусы: активный / завершен 
+- Поиск по номеру рейса 
+- Прогресс выполнения 
 
+### ⏱️ Таймеры задач
+- Запуск/остановка таймера для каждой задачи
+- Автоматический подсчет времени
+- Режим офлайн (работает без интернета)
+- Заметки к задачам
 
+### 📚 Шаблоны задач
+- Создание и редактирование шаблонов
+- Быстрое добавление из шаблонов
 
+### 📊 Отчеты
+- **Отчет по рейсу** — детализация по задачам с временем
+- **Сводный отчет** — статистика за период (день/неделя/месяц/свой)
+- Экспорт в Telegram, WhatsApp, MAX, Email
+- Копирование отчета в буфер обмена
 
-6. Получите URL вашего фронтенда
-После деплоя вы увидите что-то вроде:
+### 📱 PWA (Progressive Web App)
+- Установка на домашний экран
+- Работа офлайн
 
-text
-https://flight-crew-tracker.vercel.app
-Запишите этот URL, он понадобится для:
+### 🔗 Обмен рейсами
+- **QR-код** с данными рейса (работает без интернета)
+- Импорт рейсов по QR или ссылке
+- Шеринг через Telegram, WhatsApp, MAX
 
-Настройки бекенда (CORS)
+---
 
-Telegram бота (кнопка "Открыть PWA")
+## 🛠 Технологический стек
 
-Тестирования
+| Компонент | Технология |
+|-----------|------------|
+| **Фронтенд** | React 18 + TypeScript + TailwindCSS |
+| **PWA** | Service Worker + Workbox |
+| **Локальное хранилище** | IndexedDB (Dexie.js) |
+| **Маршрутизация** | React Router v6 |
+| **Drag & Drop** | @dnd-kit/sortable |
+| **QR-коды** | qrcode.react |
+| **Деплой** | Vercel (frontend) |
 
-7. Настройте автоматический деплой (опционально)
-Vercel автоматически настроит деплой при каждом push в GitHub:
+---
 
-Сделайте изменения в коде
+## 🚀 Быстрый старт
 
-git add . && git commit -m "update" && git push
+### 1. Клонирование репозитория
 
-Vercel автоматически передеплоит сайт через минуту
-
+```bash
+git clone https://github.com/your-username/flight-crew-tracker.git
+cd flight-crew-tracker
