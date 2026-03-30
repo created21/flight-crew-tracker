@@ -2,17 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/telegram/bot.js",
-      "use": "@vercel/node",
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "nodeVersion": "24.x"
+        "distDir": "build"
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "backend/telegram/bot.js"
+      "dest": "/frontend/$1"
     }
   ]
 }
