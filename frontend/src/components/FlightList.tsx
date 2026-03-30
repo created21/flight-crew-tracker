@@ -15,6 +15,10 @@ const FlightList: React.FC = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<TabType>('active');
+  
+  // Состояние для хранения прогресса каждого рейса
+  const [flightProgress, setFlightProgress] = useState<Map<number, number>>(new Map());
+  
   const navigate = useNavigate();
 
   // Загрузка рейсов
@@ -48,23 +52,58 @@ const FlightList: React.FC = () => {
     };
   }, []);
 
+  // Загрузка прогресса для всех рейсов
+  useEffect(() => {
+    const loadProgressForFlights = async () => {
+      const progressMap = new Map<number, number>();
+      
+      for (const flight of flights) {
+        if (flight.id) {
+          if (flight.status === 'completed') {
+            progressMap.set(flight.id, 100);
+          } else {
+            try {
+              // Получаем задачи для этого рейса
+              const tasks = await db.tasks.where('flightId').equals(flight.id).toArray();
+              
+              if (tasks.length === 0) {
+                progressMap.set(flight.id, 0);
+              } else {
+                const completedCount = tasks.filter(t => t.completed).length;
+                const progress = Math.round((completedCount / tasks.length) * 100);
+                progressMap.set(flight.id, progress);
+              }
+            } catch (error) {
+              console.error('Error loading tasks for flight:', flight.id, error);
+              progressMap.set(flight.id, 0);
+            }
+          }
+        }
+      }
+      
+      setFlightProgress(progressMap);
+    };
+    
+    if (flights.length > 0) {
+      loadProgressForFlights();
+    }
+  }, [flights]);
+
   // Фильтрация рейсов по статусу и поиску
   const getFilteredFlights = (tab: TabType) => {
-  return flights
-    .filter(flight => {
-      if (tab === 'active') {
-        // Активные: всё кроме completed
-        return flight.status !== 'completed';
-      } else {
-        // Завершенные: только completed
-        return flight.status === 'completed';
-      }
-    })
-    .filter(flight => 
-      flight.flightNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (flight.aircraft && flight.aircraft.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-};
+    return flights
+      .filter(flight => {
+        if (tab === 'active') {
+          return flight.status !== 'completed';
+        } else {
+          return flight.status === 'completed';
+        }
+      })
+      .filter(flight => 
+        flight.flightNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (flight.aircraft && flight.aircraft.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+  };
 
   const activeFlights = getFilteredFlights('active');
   const completedFlights = getFilteredFlights('completed');
@@ -81,6 +120,12 @@ const FlightList: React.FC = () => {
     e.stopPropagation();
     
     try {
+      // Удаляем все задачи этого рейса
+      const tasks = await db.tasks.where('flightId').equals(flightId).toArray();
+      for (const task of tasks) {
+        if (task.id) await db.tasks.delete(task.id);
+      }
+      
       await db.flights.delete(flightId);
       setFlights(prev => prev.filter(f => f.id !== flightId));
       setDeleteConfirm(null);
@@ -103,83 +148,75 @@ const FlightList: React.FC = () => {
   };
 
   const handleSync = async () => {
-  if (syncing) return;
-  
-  setSyncing(true);
-  setSyncMessage(null);
-  let isActive = true;
+    if (syncing) return;
+    
+    setSyncing(true);
+    setSyncMessage(null);
+    let isActive = true;
 
-  try {
-    // Получаем ВСЕ несинхронизированные рейсы (любого статуса, кроме synced)
-    const unsyncedFlights = await db.flights
-      .where('status')
-      .notEqual('synced')
-      .toArray();
+    try {
+      const unsyncedFlights = await db.flights
+        .where('status')
+        .notEqual('synced')
+        .toArray();
 
-    if (unsyncedFlights.length === 0) {
-      setSyncMessage({ 
-        text: '✨ Все данные уже синхронизированы', 
-        type: 'success' 
-      });
-      setTimeout(() => setSyncMessage(null), 3000);
-      return;
-    }
-
-    // Синхронизируем каждый рейс
-    for (let i = 0; i < unsyncedFlights.length; i++) {
-      if (!isActive) break;
-      
-      const flight = unsyncedFlights[i];
-      
-      // Имитация отправки на сервер
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      if (flight.id && isActive) {
-        // Обновляем статус в зависимости от текущего статуса
-        let newStatus: Flight['status'] = 'synced';
-        
-        // Если рейс завершен, оставляем его завершенным
-        if (flight.status === 'completed') {
-          newStatus = 'completed';
-        }
-        
-        await db.flights.update(flight.id, { 
-          status: newStatus,
-          lastModified: new Date()
+      if (unsyncedFlights.length === 0) {
+        setSyncMessage({ 
+          text: '✨ Все данные уже синхронизированы', 
+          type: 'success' 
         });
+        setTimeout(() => setSyncMessage(null), 3000);
+        return;
+      }
+
+      for (let i = 0; i < unsyncedFlights.length; i++) {
+        if (!isActive) break;
+        
+        const flight = unsyncedFlights[i];
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (flight.id && isActive) {
+          let newStatus: Flight['status'] = 'synced';
+          if (flight.status === 'completed') {
+            newStatus = 'completed';
+          }
+          
+          await db.flights.update(flight.id, { 
+            status: newStatus,
+            lastModified: new Date()
+          });
+        }
+      }
+
+      if (isActive) {
+        const updatedFlights = await db.flights.toArray();
+        const sorted = updatedFlights.sort((a, b) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setFlights(sorted);
+        
+        setSyncMessage({ 
+          text: `✅ Успешно синхронизировано ${unsyncedFlights.length} рейсов`, 
+          type: 'success' 
+        });
+        setTimeout(() => setSyncMessage(null), 3000);
+      }
+
+    } catch (error) {
+      console.error('Ошибка синхронизации:', error);
+      if (isActive) {
+        setSyncMessage({ 
+          text: '❌ Ошибка синхронизации', 
+          type: 'error' 
+        });
+        setTimeout(() => setSyncMessage(null), 3000);
+      }
+    } finally {
+      if (isActive) {
+        setSyncing(false);
       }
     }
-
-    // Обновляем список
-    if (isActive) {
-      const updatedFlights = await db.flights.toArray();
-      const sorted = updatedFlights.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      setFlights(sorted);
-      
-      setSyncMessage({ 
-        text: `✅ Успешно синхронизировано ${unsyncedFlights.length} рейсов`, 
-        type: 'success' 
-      });
-      setTimeout(() => setSyncMessage(null), 3000);
-    }
-
-  } catch (error) {
-    console.error('Ошибка синхронизации:', error);
-    if (isActive) {
-      setSyncMessage({ 
-        text: '❌ Ошибка синхронизации', 
-        type: 'error' 
-      });
-      setTimeout(() => setSyncMessage(null), 3000);
-    }
-  } finally {
-    if (isActive) {
-      setSyncing(false);
-    }
-  }
-};
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -191,40 +228,36 @@ const FlightList: React.FC = () => {
   };
 
   const getStatusInfo = (status: Flight['status']) => {
-  switch (status) {
-    case 'active':
-      return { 
-        color: 'bg-green-100 text-green-800', 
-        dot: 'bg-green-500',
-        text: 'Активный',
-        progressColor: 'bg-green-500'
-      };
-    case 'completed':
-      return { 
-        color: 'bg-blue-100 text-blue-800', 
-        dot: 'bg-blue-500',
-        text: 'Завершен',
-        progressColor: 'bg-blue-500'
-      };
-    case 'synced':
-      return { 
-        color: 'bg-purple-100 text-purple-800', // Изменим цвет для наглядности
-        dot: 'bg-purple-500',
-        text: 'Синхронизирован',
-        progressColor: 'bg-purple-500'
-      };
-    default:
-      return { 
-        color: 'bg-gray-100 text-gray-800', 
-        dot: 'bg-gray-300',
-        text: 'Черновик',
-        progressColor: 'bg-gray-300'
-      };
-  }
-};
-
-  const calculateProgress = (flight: Flight) => {
-    return flight.status === 'completed' ? 100 : flight.status === 'active' ? 35 : 0;
+    switch (status) {
+      case 'active':
+        return { 
+          color: 'bg-green-100 text-green-800', 
+          dot: 'bg-green-500',
+          text: 'Активный',
+          progressColor: 'bg-green-500'
+        };
+      case 'completed':
+        return { 
+          color: 'bg-blue-100 text-blue-800', 
+          dot: 'bg-blue-500',
+          text: 'Завершен',
+          progressColor: 'bg-blue-500'
+        };
+      case 'synced':
+        return { 
+          color: 'bg-purple-100 text-purple-800',
+          dot: 'bg-purple-500',
+          text: 'Синхронизирован',
+          progressColor: 'bg-purple-500'
+        };
+      default:
+        return { 
+          color: 'bg-gray-100 text-gray-800', 
+          dot: 'bg-gray-300',
+          text: 'Черновик',
+          progressColor: 'bg-gray-300'
+        };
+    }
   };
 
   if (loading) {
@@ -245,13 +278,12 @@ const FlightList: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-8">
-      {/* Библиотека шаблонов */}
       <TemplateLibrary
         isOpen={showTemplates}
         onClose={() => setShowTemplates(false)}
       />
 
-      {/* Шапка с градиентом */}
+      {/* Шапка */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 shadow-lg">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between">
@@ -268,6 +300,14 @@ const FlightList: React.FC = () => {
                 <span className="mr-1">📚</span>
                 Шаблоны
               </button>
+            <button
+  onClick={() => navigate('/reports')}
+  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center"
+  title="Отчеты"
+>
+  <span className="mr-1">📊</span>
+  Отчеты
+</button>
             </div>
           </div>
           
@@ -335,7 +375,7 @@ const FlightList: React.FC = () => {
         {/* Кнопки действий (только для активных рейсов) */}
         {activeTab === 'active' && (
           <div className="flex gap-3 mb-6">
-            <button
+            {/* <button
               onClick={handleSync}
               disabled={syncing}
               className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl shadow-md transition-all transform hover:scale-105 ${
@@ -355,7 +395,7 @@ const FlightList: React.FC = () => {
                   <span>Синхронизировать</span>
                 </>
               )}
-            </button>
+            </button> */}
 
             <Link 
               to="/flight/new" 
@@ -408,7 +448,8 @@ const FlightList: React.FC = () => {
           <div className="space-y-4">
             {currentFlights.map((flight, index) => {
               const statusInfo = getStatusInfo(flight.status);
-              const progress = calculateProgress(flight);
+              // Получаем прогресс из состояния, если нет - 0
+              const progress = flightProgress.get(flight.id!) ?? 0;
               
               return (
                 <div
@@ -452,21 +493,22 @@ const FlightList: React.FC = () => {
                             {statusInfo.text}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-                          <span>📅 {formatDate(flight.date)}</span>
+
+                      </div>
+                                              <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+                          <span>{formatDate(flight.date)}</span>
                           {flight.aircraft && (
                             <>
-                              <span>•</span>
+                              {/* <span>•</span> */}
                               <span>✈️ {flight.aircraft}</span>
                             </>
                           )}
                         </div>
-                      </div>
-                      <div className="relative">
+                      {/* <div className="relative">
                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
                           <span className="text-blue-600 font-bold">{progress}%</span>
                         </div>
-                      </div>
+                      </div> */}
                     </div>
 
                     {/* Прогресс бар (только для активных) */}

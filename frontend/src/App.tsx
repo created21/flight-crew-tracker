@@ -4,9 +4,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import FlightList from './components/FlightList';
 import FlightNew from './components/FlightNew';
 import FlightEdit from './components/FlightEdit';
-import FlightDetail from './components/FlightDetail';
-import SyncStatus from './components/SyncStatus';
+import FlightDetail from './components/FlightDetail'; 
 import { API_URL } from './config';
+import ImportFlight from './components/ImportFlight';
+import ReportsPage from './components/ReportsPage';
 
 function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -48,10 +49,11 @@ useEffect(() => {
         <Route path="/flight/edit/:id" element={<FlightEdit />} />
         <Route path="/flight/:id" element={<FlightDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/import" element={<ImportFlight />} />
+        <Route path="/reports" element={<ReportsPage />} />
       </Routes>
       
-      {/* Индикатор синхронизации */}
-      <SyncStatus isOnline={isOnline} onSync={handleSync} />
+      
     </BrowserRouter>
   );
 }
