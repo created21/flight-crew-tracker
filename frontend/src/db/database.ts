@@ -21,6 +21,7 @@ export interface Task {
   startTime?: Date;
   endTime?: Date;
   synced: boolean;
+  lastModified?: Date; // Добавьте, если используется
 }
 
 export interface SyncQueue {

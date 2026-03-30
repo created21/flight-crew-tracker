@@ -1,0 +1,6 @@
+# Игнорируем ненужные файлы
+node_modules
+.git
+README.md
+docker-compose.yml
+frontend/
