@@ -157,7 +157,6 @@ const FlightEdit: React.FC = () => {
               >
                 <option value="active">Активный</option>
                 <option value="completed">Завершен</option>
-                <option value="synced">Синхронизирован</option>
               </select>
             </div>
 

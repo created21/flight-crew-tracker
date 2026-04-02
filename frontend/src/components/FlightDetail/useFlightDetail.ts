@@ -309,23 +309,23 @@ export const useFlightDetail = () => {
   };
 
   const finishFlight = async () => {
-    if (!id) return;
+  if (!id) return;
 
-    const flightId = parseInt(id);
-    await db.flights.update(flightId, {
-      status: 'completed',
-      lastModified: new Date()
-    });
+  const flightId = parseInt(id);
+  await db.flights.update(flightId, {
+    status: 'completed',
+    lastModified: new Date()
+  });
 
-    await addToSyncQueue('update', 'flights', {
-      id: flightId,
-      status: 'completed',
-      completedAt: new Date()
-    });
+  await addToSyncQueue('update', 'flights', {
+    id: flightId,
+    status: 'completed',
+    completedAt: new Date()
+  });
 
-    setFlight(prev => prev ? { ...prev, status: 'completed', lastModified: new Date() } : null);
-    setTimeout(() => navigate('/'), 2000);
-  };
+  setFlight(prev => prev ? { ...prev, status: 'completed', lastModified: new Date() } : null);
+  setTimeout(() => navigate('/'), 2000);
+};
 
   const isCompleted = flight?.status === 'completed';
   const completedCount = tasks.filter(t => t.completed).length;
